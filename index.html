@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+  <link rel="icon" href="#" />
+  <title>Signed Call web SDK</title>
+  <style>
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      font-size: 14px;
+      font-family: sans-serif;
+    }
+
+    h2 {
+      font-size: 22px;
+      text-decoration: underline;
+    }
+
+    form,
+    #dialler {
+      margin: 10px auto;
+      width: 320px;
+      /*text-align: center;*/
+      border: 1px dotted #999;
+      padding: 1%;
+      font-size: 10px;
+      font-weight: 900;
+      color: #e9a;
+    }
+
+    input[type="text"] {
+      margin: 0.75rem 0rem 0.25rem 0rem;
+      padding-left: 1%;
+      font-size: 14px;
+      border: none;
+      border-bottom: 1px dotted #999;
+      outline: none;
+      width: 100%;
+      font-weight: 300;
+      line-height: 20px;
+    }
+
+    input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      vertical-align: middle;
+    }
+
+    button {
+      width: 85%;
+      display: block;
+      margin: 0 auto;
+      margin: 0 auto;
+      padding: 1rem;
+      background: #fff;
+      border: none;
+      outline: 1px solid black;
+      cursor: pointer;
+      text-transform: uppercase;
+    }
+
+    button:hover {
+      background: #efefef;
+    }
+
+    button:active {
+      background: #dfdfdf;
+    }
+
+    .hide {
+      display: none;
+    }
+
+    .flex {
+      display: flex;
+    }
+
+    #notifyhim {
+      width: 82%;
+      margin: 16px auto 20px auto;
+      border: 1px dotted;
+      padding: 1%;
+      color: #e9a;
+      font-size: 10px;
+      font-weight: 900;
+      border-color: #999;
+    }
+
+    #notifyhim h4 {
+      font-size: 16px;
+    }
+  </style>
+</head>
+
+<body>
+  <h1 style="text-align: center; color: #e9a">Signed Call</h1>
+  <p style="text-align: center">This Demo used local build of clevertap sdk</p>
+  <div class="flex">
+    <form>
+      <h2 style="text-align: center;">Caller</h2>
+      CC: <input type="text" id="cc" placeholder="cc" /><br />
+      Phone: <input type="text" id="phone" placeholder="Phone" /><br />
+      Custom UID:
+      <input type="text" id="cuid" placeholder="Custom UID" /><br />
+      Account ID:
+      <input type="text" id="accountId" placeholder="Account ID" /><br />
+      API KEY: <input type="text" id="apikey" placeholder="API KEY" /><br />
+      Name: <input type="text" id="name" placeholder="Name" /><br />
+      <br />
+      <button id="connectBtn" type="button">Connect</button>
+      <button id="disconnectBtn" type="button" onclick="disconnect()" class="hide">
+        Disconnect
+      </button>
+    </form>
+    <hr id="hr" class="hide" />
+    <div id="dialler" class="hide">
+      <h2 style="text-align: center;">To whom you are calling</h2>
+      CUID:
+      <input type="text" id="tcuid" placeholder="Target CUID" /><br />
+      Context:
+      <input type="text" id="tcontext" placeholder="Call Context" /><br />
+      Webhook URL:
+      <input type="text" id="turl" placeholder="Defaults to blank" /><br />
+      Var1:
+      <input type="text" id="tvar1" placeholder="Defaults to blank" /><br />
+      Var2:
+      <input type="text" id="tvar2" placeholder="Defaults to blank" /><br />
+      <button id="callBtn" type="button" style="margin-top: 5%;" onclick="call()">Call</button>
+    </div>
+  </div>
+</body>
+<!-- <script type="text/javascript" src="./node_modules/crypto-js/crypto-js.js"></script> -->
+<script type="text/javascript">
+  var clevertap = { event: [], profile: [], account: [], onUserLogin: [], notifications: [], privacy: [] };
+  clevertap.account.push({ id: '566-7Z4-W54Z' }, 'eu1');
+  clevertap.privacy.push({ optOut: false });
+  clevertap.privacy.push({ useIP: false });
+  (function () {
+    var wzrk = document.createElement('script');
+    wzrk.type = 'text/javascript';
+    wzrk.async = true;
+    // wzrk.src = "./clevertap.js"
+    wzrk.src = "https://cdn.jsdelivr.net/gh/CleverTap/clevertap-web-sdk/clevertap.js"
+    var s = document.getElementsByTagName('script')[0];
+    s.parentNode.insertBefore(wzrk, s);
+  })();
+</script>
+<script src="./clevertap-signedcall.umd.js"></script>
+<script type="text/javascript">
+  document
+    .getElementById("connectBtn")
+    .addEventListener("click", function () {
+      initSDK();
+    });
+  let SignedCallClient = undefined;
+  let platform = "web";
+  let templates;
+  loadSavedForm();
+
+  function makeid(length) {
+    var result = '';
+    var characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    var charactersLength = characters.length;
+    for (var i = 0; i < length; i++) {
+      result += characters.charAt(Math.floor(Math.random() *
+        charactersLength));
+    }
+    return result;
+  }
+
+  document.getElementById("cuid").value = "ayush09"
+  function initSDK() {
+    let cc = document.getElementById("cc").value || "";
+    let phone = document.getElementById("phone").value || "";
+    let cuid = document.getElementById("cuid").value || "";
+    let accountId = document.getElementById("accountId").value || "";
+    let apikey = document.getElementById("apikey").value || "";
+    let name = document.getElementById("name").value || "";
+
+    // Store locally for ease of use
+    saveFormValues(
+      cc,
+      phone,
+      cuid,
+      accountId,
+      apikey,
+      name
+
+    );
+    SignedCallSDK.initSignedCall({
+      accountId: accountId,
+      apikey: apikey,
+      // cc: cc,
+      // phone: phone,
+      cuid: cuid,
+      name: name,
+      clevertap
+    })
+      .then((client) => {
+        console.log({ client })
+        SignedCallClient = client;
+        hide("connectBtn");
+        show("disconnectBtn");
+        show("hr");
+        show("dialler");
+      })
+      .catch(e => console.log(e));
+  }
+
+  function hide(elementId) {
+    let ele = document.getElementById(elementId);
+    if (!ele) {
+      return false;
+    }
+    if (ele.classList.contains("hide")) {
+      return false;
+    }
+    ele.classList.add("hide");
+  }
+
+  function show(elementId) {
+    let ele = document.getElementById(elementId);
+    if (!ele) {
+      return false;
+    }
+    if (!ele.classList.contains("hide")) {
+      return false;
+    }
+    ele.classList.remove("hide");
+  }
+
+  function saveFormValues(
+    cc,
+    phone,
+    cuid,
+    accountId,
+    apikey,
+    name,
+  ) {
+    localStorage.setItem("cc", cc);
+    localStorage.setItem("phone", phone);
+    localStorage.setItem("cuid", cuid);
+    localStorage.setItem("accountId", accountId);
+    localStorage.setItem("apikey", apikey);
+    localStorage.setItem("name", name);
+  }
+
+  function loadSavedForm() {
+    let cc = localStorage.getItem("cc");
+    let phone = localStorage.getItem("phone");
+    let cuid = localStorage.getItem("cuid");
+    let accountId = localStorage.getItem("accountId");
+    let apikey = localStorage.getItem("apikey");
+    let name = localStorage.getItem("name");
+    let ringtone = localStorage.getItem("ringtone");
+    document.getElementById("cc").value = cc;
+    document.getElementById("phone").value = phone;
+    document.getElementById("cuid").value = cuid;
+    document.getElementById("accountId").value = accountId;
+    document.getElementById("apikey").value = apikey;
+  }
+
+  let disconnect = function () {
+    SignedCallClient.disconnect();
+    hide("disconnectBtn");
+    hide("hr");
+    hide("dialler");
+    hide("notifyhim");
+    show("connectBtn");
+  }
+
+  function call() {
+    console.log("voip");
+    let cuid = document.getElementById("tcuid").value;
+    let context = document.getElementById("tcontext").value;
+    let var1 = document.getElementById("tvar1").value;
+    let accountId = document.getElementById("accountId").value;
+    let var2 = document.getElementById("tvar2").value;
+    let ecta = document.getElementById("ecta");
+    let afb = document.getElementById("afb");
+
+    let callOptions = {
+      pstn: false,
+      // recording: true,
+      var1: 'asdnaskdjnasnd',
+      var2: 'asdsdas',
+    };
+    let callee = cuid
+    if (templates) {
+      // whichever template you want to send
+      callOptions.template = templates[0];
+    }
+    // Check if call tokens are enabled or not
+    // If they are enabled we will generate a call token
+    // and pass it in the call options.
+    // If not, we simply invoice the call method without a call
+    // token in the options.
+    SignedCallClient.call(callee, context, {
+      receiver_image: "https://venturebeat.com/wp-content/uploads/2019/04/3fba14df-184a-4d71-9e2b-8b5b421e7c23.png?fit=1576%2C720&strip=all",
+      initiator_image: "https://www.exchange4media.com/news-photo/103873-dunzologo.jpg"
+    })
+      .then((response) => {
+        if (response) {
+          console.log("Call response : ", response);
+        }
+      })
+      .catch((error) => {
+        console.log(error);
+        if (error.name === "JsonWebTokenError") {
+          alert(
+            "ECTA is enabled for your account. Please retry with the Call Token option enabled"
+          );
+        } else {
+          console.log(error);
+          if (error.message === 'Missing CC/Phone to make a PSTN call') {
+            phone = callee
+            cc = '91'
+            callee = {
+              phone, cc
+            }
+            callOptions.pstn = true
+            SignedCallClient.call(callee, context, callOptions).then(res => {
+              console.log('response from catch block', res)
+            })
+          }
+        }
+      });
+  }
+
+</script>
+
+</html>
